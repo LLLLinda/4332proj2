@@ -81,79 +81,91 @@ def get_AUC(model, true_edges, false_edges):
     return roc_auc_score(y_true, y_scores)
 
 
-# main
-directed = True
-p = 1
-q = 1
-num_walks = 10
-walk_length = 10
-dimension = 20
-window_size = 5
-num_workers = 4
-iterations = 10
-number_of_groups = 2
+if __name__ == "__main__":
+    directed = True
+    p = 1
+    q = 1
+    num_walks = 10
+    walk_length = 80
+    dimension = 128
+    window_size = 50
+    num_workers = 8
+    iterations = 20
+    # number_of_groups = 2
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
-# Start to load the train data
+    # Start to load the train data
 
-train_edges = list()
-raw_train_data = pandas.read_csv('train.csv')
-for i, record in raw_train_data.iterrows():
-    train_edges.append((str(record['head']), str(record['tail'])))
-# from tut
-# train_edges=train_edges[0:1000]
-train_edges = list(set(train_edges))
-edges_by_group = divide_data(train_edges, number_of_groups)
+    train_edges = list()
+    raw_train_data = pandas.read_csv('train.csv')
+    for i, record in raw_train_data.iterrows():
+        train_edges.append((str(record['head']), str(record['tail'])))
+    train_edges = list(set(train_edges))
+    # from tut
+    # edges_by_group = divide_data(train_edges, number_of_groups)
 
-# print('finish loading the train data.')
+    print('finish loading the train data.')
 
-# Start to load the valid/test data
+    # Start to load the valid/test data
 
-valid_positive_edges = list()
-valid_negative_edges = list()
-raw_valid_data = pandas.read_csv('valid.csv')
-for i, record in raw_valid_data.iterrows():
-    if record['label']:
-        valid_positive_edges.append((str(record['head']), str(record['tail'])))
-    else:
-        valid_negative_edges.append((str(record['head']), str(record['tail'])))
-valid_positive_edges = list(set(valid_positive_edges))
-valid_negative_edges = list(set(valid_negative_edges))
+    valid_positive_edges = list()
+    valid_negative_edges = list()
+    raw_valid_data = pandas.read_csv('valid.csv')
+    for i, record in raw_valid_data.iterrows():
+        if record['label']:
+            valid_positive_edges.append((str(record['head']), str(record['tail'])))
+        else:
+            valid_negative_edges.append((str(record['head']), str(record['tail'])))
+    valid_positive_edges = list(set(valid_positive_edges))
+    valid_negative_edges = list(set(valid_negative_edges))
 
-print('finish loading the valid/test data.')
+    # Start to load the test data
+    test_edges = list()
+    raw_test_data = pandas.read_csv('test.csv')
+    for i, record in raw_test_data.iterrows():
+        test_edges.append((str(int(record['head'])), str(int(record['tail']))))
+    test_edges = list(set(test_edges))
+    print( test_edges)
 
-# write code to train the model here
-G = node2vec.Graph(get_G_from_edges(train_edges), directed, p, q)
-# Calculate the probability for the random walk process
-G.preprocess_transition_probs()
-# Conduct the random walk process
-walks = G.simulate_walks(num_walks, walk_length)
-# Train the node embeddings with gensim word2vec package
-model = Word2Vec(walks, size=dimension, window=window_size, min_count=0, sg=1, workers=num_workers, iter=iterations)
-# Save the resulted embeddings (you can use any format you like)
-resulted_embeddings = dict()
-for i, w in enumerate(model.wv.index2word):
-    resulted_embeddings[w] = model.wv.syn0[i]
-# replace 'your_model' with your own model and use the provided evaluation code to evaluate.
-tmp_AUC_score = get_AUC(model, valid_positive_edges, valid_negative_edges)
+    print('finish loading the valid/test data.')
+    print("train: ",len(train_edges),"test: ",len(test_edges),"difference: ",len(set(train_edges).difference(set(test_edges))))
+    print("train: ",len(train_edges),"valid: ",len(valid_positive_edges+valid_negative_edges),"difference: ",len(set(train_edges).difference(set(valid_positive_edges+valid_negative_edges))))
+    print("test: ",len(test_edges),"valid: ",len(valid_positive_edges+valid_negative_edges),"difference: ",len(set(test_edges).difference(set(valid_positive_edges+valid_negative_edges))))
+    cycle=0
+    while True:
+        # write code to train the model here
+        G = node2vec.Graph(get_G_from_edges(train_edges), directed, p, q)
+        # Calculate the probability for the random walk process
+        G.preprocess_transition_probs()
+        # Conduct the random walk process
+        walks = G.simulate_walks(num_walks, walk_length)
+        # Train the node embeddings with gensim word2vec package
+        model = Word2Vec(walks, size=dimension, window=window_size, min_count=0, sg=1, workers=num_workers, iter=iterations)
+        # Save the resulted embeddings (you can use any format you like)
+        resulted_embeddings = dict()
+        # for i, w in enumerate(model.wv.index2word):
+        #     resulted_embeddings[w] = model.wv.syn0[i]
+        # replace 'your_model' with your own model and use the provided evaluation code to evaluate.
+        tmp_AUC_score = get_AUC(model, valid_positive_edges, valid_negative_edges)
 
-print('tmp_accuracy:', tmp_AUC_score)
+        print('tmp_accuracy:', tmp_AUC_score)
 
-print('end')
+        print('end')
 
-# Start to load the test data
-test_edges = list()
-raw_test_data = pandas.read_csv('test.csv')
-for i, record in raw_test_data.iterrows():
-    test_edges.append((str(record['head']), str(record['tail'])))
-test_edges = list(set(test_edges))
-# predicting
-prediction_list = list()
-for edge in test_edges:
-        tmp_score = get_neighbourhood_score(model, str(edge[0]), str(edge[1]))
-        prediction_list.append(tmp_score)
-df = raw_test_data
-df["score"] = prediction_list
-df.to_csv("text_ans.csv", index=False)
+        # predicting
+        prediction_list = list()
+        label_list=list()
+        for edge in test_edges:
+                tmp_score = get_neighbourhood_score(model, str(edge[0]), str(edge[1]))
+                prediction_list.append(tmp_score)
+                label_list.append(("True","False")[tmp_score<=0.5])
+        df = raw_test_data
+        df["score"] = prediction_list
+        df["label"]= label_list
+        filename="test_"+str(cycle)+".csv"
+        df.to_csv(filename, index=False)
+        with open("acc_record_for_test.txt", "a") as myfile:
+            myfile.write("acc for "+filename+" is "+str(tmp_AUC_score)+"\n")
+        cycle+=1

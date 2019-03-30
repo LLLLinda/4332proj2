@@ -1,0 +1,8 @@
+acc for test_0.csv is 0.9283719423562511
+acc for test_1.csv is 0.9270807031507047
+acc for test_2.csv is 0.934533029589246
+acc for test_3.csv is 0.9303897846796881
+acc for test_4.csv is 0.926376290326897
+acc for test_5.csv is 0.9299959622511397
+acc for test_6.csv is 0.9315478821207345
+acc for test_7.csv is 0.9303947977693815
